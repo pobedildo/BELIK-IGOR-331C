@@ -1,0 +1,19 @@
+package com.example.myapplication.notification;
+
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+
+import com.example.myapplication.data.DatabaseHelper;
+import com.example.myapplication.data.Task;
+public class BootReceiver extends BroadcastReceiver {
+    @Override
+    public void onReceive(Context context, Intent intent) {
+        if (intent == null || !Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())) return;
+        NotificationHelper.ensureChannels(context);
+        DatabaseHelper db = DatabaseHelper.getInstance(context);
+        for (Task t : db.getAllIncompleteTasksWithReminders()) {
+            ReminderScheduler.schedule(context, t);
+        }
+    }
+}
