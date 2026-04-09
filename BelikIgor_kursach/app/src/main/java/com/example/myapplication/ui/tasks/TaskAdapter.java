@@ -9,17 +9,23 @@ import android.widget.ImageButton;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.core.graphics.ColorUtils;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.myapplication.R;
+import com.example.myapplication.data.Tag;
 import com.example.myapplication.data.Task;
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 public class TaskAdapter extends RecyclerView.Adapter<TaskAdapter.Holder> {
 
@@ -34,6 +40,7 @@ public class TaskAdapter extends RecyclerView.Adapter<TaskAdapter.Holder> {
     }
 
     private final List<Task> tasks = new ArrayList<>();
+    private final Map<Long, List<Tag>> taskTags = new HashMap<>();
     private final Listener listener;
     private final SimpleDateFormat dateFormat =
             new SimpleDateFormat("d MMM yyyy, HH:mm", new Locale("ru"));
@@ -59,6 +66,12 @@ public class TaskAdapter extends RecyclerView.Adapter<TaskAdapter.Holder> {
 
     public Task getTaskAt(int position) {
         return tasks.get(position);
+    }
+
+    public void setTaskTags(Map<Long, List<Tag>> tagsByTaskId) {
+        taskTags.clear();
+        if (tagsByTaskId != null) taskTags.putAll(tagsByTaskId);
+        notifyDataSetChanged();
     }
 
     public void removeTask(long taskId) {
@@ -90,6 +103,7 @@ public class TaskAdapter extends RecyclerView.Adapter<TaskAdapter.Holder> {
             h.description.setText(desc);
         }
         h.due.setText(dateFormat.format(new Date(t.getDueDateTime())));
+        bindTags(h.chipsTags, taskTags.get(t.getId()));
 
         h.check.setOnCheckedChangeListener(null);
         h.check.setChecked(t.isCompleted());
@@ -108,6 +122,33 @@ public class TaskAdapter extends RecyclerView.Adapter<TaskAdapter.Holder> {
             listener.onItemLongClick(t, v);
             return true;
         });
+    }
+
+    private void bindTags(ChipGroup group, List<Tag> tags) {
+        group.removeAllViews();
+        if (tags == null || tags.isEmpty()) {
+            group.setVisibility(View.GONE);
+            return;
+        }
+        group.setVisibility(View.VISIBLE);
+        for (Tag tag : tags) {
+            Chip chip = new Chip(group.getContext());
+            chip.setText(tag.getName());
+            chip.setCheckable(false);
+            int color = parseColor(tag.getColor());
+            chip.setChipBackgroundColorResource(android.R.color.transparent);
+            chip.setChipBackgroundColor(android.content.res.ColorStateList.valueOf(ColorUtils.setAlphaComponent(color, 48)));
+            chip.setTextColor(color);
+            group.addView(chip);
+        }
+    }
+
+    private static int parseColor(String hex) {
+        try {
+            return android.graphics.Color.parseColor(hex);
+        } catch (Exception e) {
+            return android.graphics.Color.parseColor("#3F51B5");
+        }
     }
 
     private static void applyStrike(TextView title, TextView description, boolean done) {
@@ -135,6 +176,7 @@ public class TaskAdapter extends RecyclerView.Adapter<TaskAdapter.Holder> {
         final TextView title;
         final TextView description;
         final TextView due;
+        final ChipGroup chipsTags;
         final ImageButton deleteDone;
 
         Holder(@NonNull View itemView) {
@@ -143,6 +185,7 @@ public class TaskAdapter extends RecyclerView.Adapter<TaskAdapter.Holder> {
             title = itemView.findViewById(R.id.text_title);
             description = itemView.findViewById(R.id.text_description);
             due = itemView.findViewById(R.id.text_due);
+            chipsTags = itemView.findViewById(R.id.chips_tags);
             deleteDone = itemView.findViewById(R.id.btn_delete_done);
         }
     }

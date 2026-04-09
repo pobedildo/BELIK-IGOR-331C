@@ -18,7 +18,7 @@ import java.util.Set;
 public class DatabaseHelper extends SQLiteOpenHelper {
 
     private static final String DB_NAME = "organizer.db";
-    private static final int DB_VERSION = 2;
+    private static final int DB_VERSION = 3;
 
     public static final String TABLE_USERS = "users";
     public static final String COL_USER_ID = "id";
@@ -40,6 +40,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public static final String COL_REMINDER = "reminder_minutes";
     public static final String COL_COMPLETED = "completed";
     public static final String COL_TASK_IMPORTANT = "is_important";
+    public static final String COL_PARENT_TASK_ID = "parentTaskId";
+    public static final String COL_REPEAT_RULE = "repeatRule";
 
     public static final String TABLE_NOTES = "notes";
     public static final String COL_NOTE_ID = "id";
@@ -48,6 +50,32 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public static final String COL_NOTE_CONTENT = "content";
     public static final String COL_NOTE_UPDATED = "updated_at";
     public static final String COL_NOTE_IMPORTANT = "is_important";
+
+    public static final String TABLE_TAGS = "tags";
+    public static final String COL_TAG_ID = "id";
+    public static final String COL_TAG_NAME = "name";
+    public static final String COL_TAG_COLOR = "color";
+
+    public static final String TABLE_TASK_TAGS = "task_tags";
+    public static final String COL_TASK_TAG_TASK_ID = "taskId";
+    public static final String COL_TASK_TAG_TAG_ID = "tagId";
+
+    public static final String TABLE_SUBTASKS = "subtasks";
+    public static final String COL_SUBTASK_ID = "id";
+    public static final String COL_SUBTASK_TASK_ID = "taskId";
+    public static final String COL_SUBTASK_TITLE = "title";
+    public static final String COL_SUBTASK_COMPLETED = "isCompleted";
+
+    public static final String TABLE_TASK_IMAGES = "task_images";
+    public static final String COL_TASK_IMAGE_ID = "id";
+    public static final String COL_TASK_IMAGE_NOTE_ID = "noteId";
+    public static final String COL_TASK_IMAGE_PATH = "imagePath";
+
+    public static final String TABLE_BACKUPS = "backups";
+    public static final String COL_BACKUP_ID = "id";
+    public static final String COL_BACKUP_DATE = "backupDate";
+    public static final String COL_BACKUP_FILE_PATH = "filePath";
+    public static final String COL_BACKUP_SIZE = "size";
 
     private static DatabaseHelper instance;
 
@@ -89,6 +117,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 + COL_REMINDER + " INTEGER NOT NULL DEFAULT -1,"
                 + COL_COMPLETED + " INTEGER NOT NULL DEFAULT 0,"
                 + COL_TASK_IMPORTANT + " INTEGER NOT NULL DEFAULT 0,"
+                + COL_PARENT_TASK_ID + " INTEGER,"
+                + COL_REPEAT_RULE + " TEXT,"
+                + "FOREIGN KEY(" + COL_PARENT_TASK_ID + ") REFERENCES " + TABLE_TASKS + "(" + COL_TASK_ID + "),"
                 + "FOREIGN KEY(" + COL_TASK_USER + ") REFERENCES " + TABLE_USERS + "(" + COL_USER_ID + "))");
         db.execSQL("CREATE TABLE " + TABLE_NOTES + " ("
                 + COL_NOTE_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -98,6 +129,32 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 + COL_NOTE_UPDATED + " INTEGER NOT NULL,"
                 + COL_NOTE_IMPORTANT + " INTEGER NOT NULL DEFAULT 0,"
                 + "FOREIGN KEY(" + COL_NOTE_USER + ") REFERENCES " + TABLE_USERS + "(" + COL_USER_ID + "))");
+        db.execSQL("CREATE TABLE " + TABLE_TAGS + " ("
+                + COL_TAG_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
+                + COL_TAG_NAME + " TEXT NOT NULL UNIQUE,"
+                + COL_TAG_COLOR + " TEXT NOT NULL)");
+        db.execSQL("CREATE TABLE " + TABLE_TASK_TAGS + " ("
+                + COL_TASK_TAG_TASK_ID + " INTEGER NOT NULL,"
+                + COL_TASK_TAG_TAG_ID + " INTEGER NOT NULL,"
+                + "PRIMARY KEY(" + COL_TASK_TAG_TASK_ID + ", " + COL_TASK_TAG_TAG_ID + "),"
+                + "FOREIGN KEY(" + COL_TASK_TAG_TASK_ID + ") REFERENCES " + TABLE_TASKS + "(" + COL_TASK_ID + ") ON DELETE CASCADE,"
+                + "FOREIGN KEY(" + COL_TASK_TAG_TAG_ID + ") REFERENCES " + TABLE_TAGS + "(" + COL_TAG_ID + ") ON DELETE CASCADE)");
+        db.execSQL("CREATE TABLE " + TABLE_SUBTASKS + " ("
+                + COL_SUBTASK_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
+                + COL_SUBTASK_TASK_ID + " INTEGER NOT NULL,"
+                + COL_SUBTASK_TITLE + " TEXT NOT NULL,"
+                + COL_SUBTASK_COMPLETED + " INTEGER NOT NULL DEFAULT 0,"
+                + "FOREIGN KEY(" + COL_SUBTASK_TASK_ID + ") REFERENCES " + TABLE_TASKS + "(" + COL_TASK_ID + ") ON DELETE CASCADE)");
+        db.execSQL("CREATE TABLE " + TABLE_TASK_IMAGES + " ("
+                + COL_TASK_IMAGE_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
+                + COL_TASK_IMAGE_NOTE_ID + " INTEGER NOT NULL,"
+                + COL_TASK_IMAGE_PATH + " TEXT NOT NULL,"
+                + "FOREIGN KEY(" + COL_TASK_IMAGE_NOTE_ID + ") REFERENCES " + TABLE_NOTES + "(" + COL_NOTE_ID + ") ON DELETE CASCADE)");
+        db.execSQL("CREATE TABLE " + TABLE_BACKUPS + " ("
+                + COL_BACKUP_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
+                + COL_BACKUP_DATE + " INTEGER NOT NULL,"
+                + COL_BACKUP_FILE_PATH + " TEXT NOT NULL,"
+                + COL_BACKUP_SIZE + " INTEGER NOT NULL)");
     }
 
     @Override
@@ -107,6 +164,38 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     + COL_TASK_IMPORTANT + " INTEGER NOT NULL DEFAULT 0");
             db.execSQL("ALTER TABLE " + TABLE_NOTES + " ADD COLUMN "
                     + COL_NOTE_IMPORTANT + " INTEGER NOT NULL DEFAULT 0");
+        }
+        if (oldVersion < 3) {
+            db.execSQL("ALTER TABLE " + TABLE_TASKS + " ADD COLUMN "
+                    + COL_PARENT_TASK_ID + " INTEGER");
+            db.execSQL("ALTER TABLE " + TABLE_TASKS + " ADD COLUMN "
+                    + COL_REPEAT_RULE + " TEXT");
+            db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_TAGS + " ("
+                    + COL_TAG_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
+                    + COL_TAG_NAME + " TEXT NOT NULL UNIQUE,"
+                    + COL_TAG_COLOR + " TEXT NOT NULL)");
+            db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_TASK_TAGS + " ("
+                    + COL_TASK_TAG_TASK_ID + " INTEGER NOT NULL,"
+                    + COL_TASK_TAG_TAG_ID + " INTEGER NOT NULL,"
+                    + "PRIMARY KEY(" + COL_TASK_TAG_TASK_ID + ", " + COL_TASK_TAG_TAG_ID + "),"
+                    + "FOREIGN KEY(" + COL_TASK_TAG_TASK_ID + ") REFERENCES " + TABLE_TASKS + "(" + COL_TASK_ID + ") ON DELETE CASCADE,"
+                    + "FOREIGN KEY(" + COL_TASK_TAG_TAG_ID + ") REFERENCES " + TABLE_TAGS + "(" + COL_TAG_ID + ") ON DELETE CASCADE)");
+            db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_SUBTASKS + " ("
+                    + COL_SUBTASK_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
+                    + COL_SUBTASK_TASK_ID + " INTEGER NOT NULL,"
+                    + COL_SUBTASK_TITLE + " TEXT NOT NULL,"
+                    + COL_SUBTASK_COMPLETED + " INTEGER NOT NULL DEFAULT 0,"
+                    + "FOREIGN KEY(" + COL_SUBTASK_TASK_ID + ") REFERENCES " + TABLE_TASKS + "(" + COL_TASK_ID + ") ON DELETE CASCADE)");
+            db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_TASK_IMAGES + " ("
+                    + COL_TASK_IMAGE_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
+                    + COL_TASK_IMAGE_NOTE_ID + " INTEGER NOT NULL,"
+                    + COL_TASK_IMAGE_PATH + " TEXT NOT NULL,"
+                    + "FOREIGN KEY(" + COL_TASK_IMAGE_NOTE_ID + ") REFERENCES " + TABLE_NOTES + "(" + COL_NOTE_ID + ") ON DELETE CASCADE)");
+            db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_BACKUPS + " ("
+                    + COL_BACKUP_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
+                    + COL_BACKUP_DATE + " INTEGER NOT NULL,"
+                    + COL_BACKUP_FILE_PATH + " TEXT NOT NULL,"
+                    + COL_BACKUP_SIZE + " INTEGER NOT NULL)");
         }
     }
 
@@ -210,6 +299,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     public long insertTask(long userId, String title, String description, long dueMs, int reminderMinutes,
                            boolean important) {
+        return insertTask(userId, title, description, dueMs, reminderMinutes, important, null, null);
+    }
+
+    public long insertTask(long userId, String title, String description, long dueMs, int reminderMinutes,
+                           boolean important, @Nullable Long parentTaskId, @Nullable String repeatRule) {
         SQLiteDatabase db = getWritableDatabase();
         ContentValues cv = new ContentValues();
         cv.put(COL_TASK_USER, userId);
@@ -219,11 +313,27 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         cv.put(COL_REMINDER, reminderMinutes);
         cv.put(COL_COMPLETED, 0);
         cv.put(COL_TASK_IMPORTANT, important ? 1 : 0);
+        if (parentTaskId != null) {
+            cv.put(COL_PARENT_TASK_ID, parentTaskId);
+        } else {
+            cv.putNull(COL_PARENT_TASK_ID);
+        }
+        if (repeatRule != null) {
+            cv.put(COL_REPEAT_RULE, repeatRule);
+        } else {
+            cv.putNull(COL_REPEAT_RULE);
+        }
         return db.insert(TABLE_TASKS, null, cv);
     }
 
     public void updateTask(long taskId, long userId, String title, String description,
                            long dueMs, int reminderMinutes, boolean completed, boolean important) {
+        updateTask(taskId, userId, title, description, dueMs, reminderMinutes, completed, important, null, null);
+    }
+
+    public void updateTask(long taskId, long userId, String title, String description,
+                           long dueMs, int reminderMinutes, boolean completed, boolean important,
+                           @Nullable Long parentTaskId, @Nullable String repeatRule) {
         SQLiteDatabase db = getWritableDatabase();
         ContentValues cv = new ContentValues();
         cv.put(COL_TITLE, title);
@@ -232,6 +342,16 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         cv.put(COL_REMINDER, reminderMinutes);
         cv.put(COL_COMPLETED, completed ? 1 : 0);
         cv.put(COL_TASK_IMPORTANT, important ? 1 : 0);
+        if (parentTaskId != null) {
+            cv.put(COL_PARENT_TASK_ID, parentTaskId);
+        } else {
+            cv.putNull(COL_PARENT_TASK_ID);
+        }
+        if (repeatRule != null) {
+            cv.put(COL_REPEAT_RULE, repeatRule);
+        } else {
+            cv.putNull(COL_REPEAT_RULE);
+        }
         db.update(TABLE_TASKS, cv, COL_TASK_ID + "=? AND " + COL_TASK_USER + "=?",
                 new String[]{String.valueOf(taskId), String.valueOf(userId)});
     }
@@ -263,10 +383,31 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     public List<Task> getTasksForUser(long userId) {
+        return getTasksForUser(userId, null);
+    }
+
+    public List<Task> getTasksForUser(long userId, @Nullable List<Long> filterTagIds) {
         SQLiteDatabase db = getReadableDatabase();
         List<Task> list = new ArrayList<>();
-        try (Cursor c = db.query(TABLE_TASKS, null, COL_TASK_USER + "=?",
-                new String[]{String.valueOf(userId)}, null, null, null)) {
+        Cursor c;
+        if (filterTagIds == null || filterTagIds.isEmpty()) {
+            c = db.query(TABLE_TASKS, null, COL_TASK_USER + "=?",
+                    new String[]{String.valueOf(userId)}, null, null, null);
+        } else {
+            StringBuilder inClause = new StringBuilder();
+            String[] args = new String[1 + filterTagIds.size()];
+            args[0] = String.valueOf(userId);
+            for (int i = 0; i < filterTagIds.size(); i++) {
+                if (i > 0) inClause.append(',');
+                inClause.append('?');
+                args[i + 1] = String.valueOf(filterTagIds.get(i));
+            }
+            String sql = "SELECT DISTINCT t.* FROM " + TABLE_TASKS + " t "
+                    + "JOIN " + TABLE_TASK_TAGS + " tt ON tt." + COL_TASK_TAG_TASK_ID + " = t." + COL_TASK_ID + " "
+                    + "WHERE t." + COL_TASK_USER + "=? AND tt." + COL_TASK_TAG_TAG_ID + " IN (" + inClause + ")";
+            c = db.rawQuery(sql, args);
+        }
+        try (Cursor ignored = c) {
             while (c.moveToNext()) {
                 list.add(cursorToTask(c));
             }
@@ -320,6 +461,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     private Task cursorToTask(Cursor c) {
+        Long parentTaskId = null;
+        int parentIdx = c.getColumnIndex(COL_PARENT_TASK_ID);
+        if (parentIdx >= 0 && !c.isNull(parentIdx)) {
+            parentTaskId = c.getLong(parentIdx);
+        }
         return new Task(
                 c.getLong(c.getColumnIndexOrThrow(COL_TASK_ID)),
                 c.getLong(c.getColumnIndexOrThrow(COL_TASK_USER)),
@@ -328,7 +474,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 c.getLong(c.getColumnIndexOrThrow(COL_DUE)),
                 c.getInt(c.getColumnIndexOrThrow(COL_REMINDER)),
                 c.getInt(c.getColumnIndexOrThrow(COL_COMPLETED)) == 1,
-                c.getInt(c.getColumnIndexOrThrow(COL_TASK_IMPORTANT)) == 1
+                c.getInt(c.getColumnIndexOrThrow(COL_TASK_IMPORTANT)) == 1,
+                parentTaskId,
+                nullableString(c, COL_REPEAT_RULE)
         );
     }
 
@@ -413,5 +561,116 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             }
         }
         return list;
+    }
+
+    public List<Tag> getAllTags() {
+        SQLiteDatabase db = getReadableDatabase();
+        List<Tag> tags = new ArrayList<>();
+        try (Cursor c = db.query(TABLE_TAGS, null, null, null, null, null, COL_TAG_NAME + " COLLATE NOCASE ASC")) {
+            while (c.moveToNext()) {
+                tags.add(new Tag(
+                        c.getLong(c.getColumnIndexOrThrow(COL_TAG_ID)),
+                        c.getString(c.getColumnIndexOrThrow(COL_TAG_NAME)),
+                        c.getString(c.getColumnIndexOrThrow(COL_TAG_COLOR))
+                ));
+            }
+        }
+        return tags;
+    }
+
+    public long upsertTag(String name, String color) {
+        SQLiteDatabase db = getWritableDatabase();
+        String normName = name.trim();
+        try (Cursor c = db.query(TABLE_TAGS, new String[]{COL_TAG_ID},
+                "lower(" + COL_TAG_NAME + ")=lower(?)", new String[]{normName}, null, null, null)) {
+            if (c.moveToFirst()) return c.getLong(0);
+        }
+        ContentValues cv = new ContentValues();
+        cv.put(COL_TAG_NAME, normName);
+        cv.put(COL_TAG_COLOR, color);
+        return db.insert(TABLE_TAGS, null, cv);
+    }
+
+    public List<Tag> getTaskTags(long taskId) {
+        SQLiteDatabase db = getReadableDatabase();
+        List<Tag> tags = new ArrayList<>();
+        String sql = "SELECT tg." + COL_TAG_ID + ", tg." + COL_TAG_NAME + ", tg." + COL_TAG_COLOR
+                + " FROM " + TABLE_TAGS + " tg JOIN " + TABLE_TASK_TAGS + " tt ON tt." + COL_TASK_TAG_TAG_ID + "=tg." + COL_TAG_ID
+                + " WHERE tt." + COL_TASK_TAG_TASK_ID + "=? ORDER BY tg." + COL_TAG_NAME + " COLLATE NOCASE ASC";
+        try (Cursor c = db.rawQuery(sql, new String[]{String.valueOf(taskId)})) {
+            while (c.moveToNext()) {
+                tags.add(new Tag(c.getLong(0), c.getString(1), c.getString(2)));
+            }
+        }
+        return tags;
+    }
+
+    public void setTaskTags(long taskId, List<Long> tagIds) {
+        SQLiteDatabase db = getWritableDatabase();
+        db.beginTransaction();
+        try {
+            db.delete(TABLE_TASK_TAGS, COL_TASK_TAG_TASK_ID + "=?", new String[]{String.valueOf(taskId)});
+            for (Long tagId : tagIds) {
+                ContentValues cv = new ContentValues();
+                cv.put(COL_TASK_TAG_TASK_ID, taskId);
+                cv.put(COL_TASK_TAG_TAG_ID, tagId);
+                db.insert(TABLE_TASK_TAGS, null, cv);
+            }
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
+    }
+
+    public List<TagCount> getTagCountsForUser(long userId) {
+        SQLiteDatabase db = getReadableDatabase();
+        List<TagCount> list = new ArrayList<>();
+        String sql = "SELECT tg." + COL_TAG_ID + ", tg." + COL_TAG_NAME + ", tg." + COL_TAG_COLOR + ", "
+                + "COUNT(DISTINCT tt." + COL_TASK_TAG_TASK_ID + ") as cnt "
+                + "FROM " + TABLE_TAGS + " tg "
+                + "LEFT JOIN " + TABLE_TASK_TAGS + " tt ON tt." + COL_TASK_TAG_TAG_ID + "=tg." + COL_TAG_ID + " "
+                + "LEFT JOIN " + TABLE_TASKS + " t ON t." + COL_TASK_ID + "=tt." + COL_TASK_TAG_TASK_ID + " AND t." + COL_TASK_USER + "=? "
+                + "GROUP BY tg." + COL_TAG_ID + ", tg." + COL_TAG_NAME + ", tg." + COL_TAG_COLOR + " "
+                + "ORDER BY tg." + COL_TAG_NAME + " COLLATE NOCASE ASC";
+        try (Cursor c = db.rawQuery(sql, new String[]{String.valueOf(userId)})) {
+            while (c.moveToNext()) {
+                Tag tag = new Tag(c.getLong(0), c.getString(1), c.getString(2));
+                list.add(new TagCount(tag, c.getInt(3)));
+            }
+        }
+        return list;
+    }
+
+    public void replaceNoteImages(long noteId, List<String> imagePaths) {
+        SQLiteDatabase db = getWritableDatabase();
+        db.beginTransaction();
+        try {
+            db.delete(TABLE_TASK_IMAGES, COL_TASK_IMAGE_NOTE_ID + "=?", new String[]{String.valueOf(noteId)});
+            for (String path : imagePaths) {
+                ContentValues cv = new ContentValues();
+                cv.put(COL_TASK_IMAGE_NOTE_ID, noteId);
+                cv.put(COL_TASK_IMAGE_PATH, path);
+                db.insert(TABLE_TASK_IMAGES, null, cv);
+            }
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
+    }
+
+    public List<NoteImage> getNoteImages(long noteId) {
+        SQLiteDatabase db = getReadableDatabase();
+        List<NoteImage> images = new ArrayList<>();
+        try (Cursor c = db.query(TABLE_TASK_IMAGES, null, COL_TASK_IMAGE_NOTE_ID + "=?",
+                new String[]{String.valueOf(noteId)}, null, null, COL_TASK_IMAGE_ID + " ASC")) {
+            while (c.moveToNext()) {
+                images.add(new NoteImage(
+                        c.getLong(c.getColumnIndexOrThrow(COL_TASK_IMAGE_ID)),
+                        c.getLong(c.getColumnIndexOrThrow(COL_TASK_IMAGE_NOTE_ID)),
+                        c.getString(c.getColumnIndexOrThrow(COL_TASK_IMAGE_PATH))
+                ));
+            }
+        }
+        return images;
     }
 }

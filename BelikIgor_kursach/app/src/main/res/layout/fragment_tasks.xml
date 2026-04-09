@@ -9,6 +9,34 @@
         android:layout_height="match_parent"
         android:orientation="vertical">
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="12dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="12dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_manage_tags"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/manage_tags" />
+
+            <HorizontalScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:scrollbars="none">
+
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/chips_filter_tags"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:singleSelection="false" />
+            </HorizontalScrollView>
+        </LinearLayout>
+
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"

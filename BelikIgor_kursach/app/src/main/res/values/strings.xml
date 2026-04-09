@@ -67,4 +67,13 @@
     <string name="note_content">Текст</string>
     <string name="add_note">Добавить заметку</string>
     <string name="permission_notifications">Разрешите уведомления для напоминаний</string>
+    <string name="tags">Теги</string>
+    <string name="tag_name">Название тега</string>
+    <string name="add">Добавить</string>
+    <string name="manage_tags">Список тегов</string>
+    <string name="tags_stats">Теги и количество задач</string>
+    <string name="tag_pick_color">Выберите цвет тега</string>
+    <string name="attach_from_gallery">Из галереи</string>
+    <string name="take_photo">С камеры</string>
+    <string name="error_image_attach">Не удалось прикрепить изображение</string>
 </resources>

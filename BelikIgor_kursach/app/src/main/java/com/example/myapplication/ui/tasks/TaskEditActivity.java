@@ -2,7 +2,10 @@ package com.example.myapplication.ui.tasks;
 
 import android.app.DatePickerDialog;
 import android.app.TimePickerDialog;
+import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.os.Bundle;
+import android.widget.AutoCompleteTextView;
 import android.widget.ArrayAdapter;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -17,6 +20,7 @@ import androidx.core.view.WindowInsetsCompat;
 
 import com.example.myapplication.R;
 import com.example.myapplication.data.DatabaseHelper;
+import com.example.myapplication.data.Tag;
 import com.example.myapplication.data.Task;
 import com.example.myapplication.notification.NotificationHelper;
 import com.example.myapplication.notification.ReminderScheduler;
@@ -24,9 +28,15 @@ import com.example.myapplication.util.SessionManager;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.checkbox.MaterialCheckBox;
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.textfield.TextInputEditText;
 
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class TaskEditActivity extends AppCompatActivity {
 
@@ -42,8 +52,15 @@ public class TaskEditActivity extends AppCompatActivity {
     private TextView textDueSummary;
     private Spinner spinnerReminder;
     private MaterialCheckBox checkImportant;
+    private AutoCompleteTextView inputTagName;
+    private ChipGroup chipsSelectedTags;
     private SessionManager session;
     private DatabaseHelper db;
+    private final List<Tag> allTags = new ArrayList<>();
+    private final Map<Long, Tag> selectedTags = new HashMap<>();
+    private final String[] predefinedColors = new String[]{
+            "#F44336", "#E91E63", "#9C27B0", "#3F51B5", "#03A9F4", "#009688", "#4CAF50", "#FF9800"
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -75,6 +92,9 @@ public class TaskEditActivity extends AppCompatActivity {
         textDueSummary = findViewById(R.id.text_due_summary);
         spinnerReminder = findViewById(R.id.spinner_reminder);
         checkImportant = findViewById(R.id.check_important);
+        inputTagName = findViewById(R.id.input_tag_name);
+        chipsSelectedTags = findViewById(R.id.chips_selected_tags);
+        MaterialButton addTag = findViewById(R.id.btn_add_tag);
 
         String[] labels = new String[]{
                 getString(R.string.reminder_none),
@@ -85,6 +105,8 @@ public class TaskEditActivity extends AppCompatActivity {
         };
         spinnerReminder.setAdapter(new ArrayAdapter<>(this,
                 android.R.layout.simple_spinner_dropdown_item, labels));
+        reloadTagSuggestions();
+        addTag.setOnClickListener(v -> handleAddTag());
 
         if (taskId >= 0) {
             Task t = db.getTask(taskId, session.getUserId());
@@ -98,6 +120,9 @@ public class TaskEditActivity extends AppCompatActivity {
             int idx = indexOfReminder(t.getReminderMinutes());
             spinnerReminder.setSelection(idx);
             checkImportant.setChecked(t.isImportant());
+            List<Tag> taskTags = db.getTaskTags(taskId);
+            for (Tag tag : taskTags) selectedTags.put(tag.getId(), tag);
+            renderSelectedTags();
         } else if (defaultDue > 0) {
             dueCal.setTimeInMillis(defaultDue);
         }
@@ -170,10 +195,12 @@ public class TaskEditActivity extends AppCompatActivity {
             boolean completed = old != null && old.isCompleted();
             ReminderScheduler.cancel(this, taskId, uid);
             db.updateTask(taskId, uid, title, desc, dueMs, reminder, completed, important);
+            db.setTaskTags(taskId, new ArrayList<>(selectedTags.keySet()));
             Task updated = db.getTask(taskId, uid);
             if (updated != null) ReminderScheduler.schedule(this, updated);
         } else {
             long newId = db.insertTask(uid, title, desc, dueMs, reminder, important);
+            db.setTaskTags(newId, new ArrayList<>(selectedTags.keySet()));
             Task created = db.getTask(newId, uid);
             if (created != null) ReminderScheduler.schedule(this, created);
         }
@@ -193,5 +220,73 @@ public class TaskEditActivity extends AppCompatActivity {
                 })
                 .setNegativeButton(R.string.cancel, null)
                 .show();
+    }
+
+    private void reloadTagSuggestions() {
+        allTags.clear();
+        allTags.addAll(db.getAllTags());
+        List<String> names = new ArrayList<>();
+        for (Tag t : allTags) names.add(t.getName());
+        inputTagName.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, names));
+    }
+
+    private void handleAddTag() {
+        CharSequence cs = inputTagName.getText();
+        String name = cs != null ? cs.toString().trim() : "";
+        if (name.isEmpty()) return;
+        for (Tag t : allTags) {
+            if (t.getName().equalsIgnoreCase(name)) {
+                selectedTags.put(t.getId(), t);
+                renderSelectedTags();
+                inputTagName.setText("");
+                return;
+            }
+        }
+        showColorPickerForNewTag(name);
+    }
+
+    private void showColorPickerForNewTag(String name) {
+        String[] labels = new String[]{"Красный", "Розовый", "Фиолетовый", "Индиго", "Голубой", "Бирюзовый", "Зеленый", "Оранжевый"};
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.tag_pick_color)
+                .setItems(labels, (dialog, which) -> {
+                    long tagId = db.upsertTag(name, predefinedColors[which]);
+                    reloadTagSuggestions();
+                    for (Tag t : allTags) {
+                        if (t.getId() == tagId) {
+                            selectedTags.put(tagId, t);
+                            break;
+                        }
+                    }
+                    renderSelectedTags();
+                    inputTagName.setText("");
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    private void renderSelectedTags() {
+        chipsSelectedTags.removeAllViews();
+        for (Tag tag : selectedTags.values()) {
+            Chip chip = new Chip(this);
+            chip.setText(tag.getName());
+            chip.setCloseIconVisible(true);
+            chip.setOnCloseIconClickListener(v -> {
+                selectedTags.remove(tag.getId());
+                renderSelectedTags();
+            });
+            int color = parseColor(tag.getColor());
+            chip.setChipBackgroundColor(ColorStateList.valueOf(Color.argb(40, Color.red(color), Color.green(color), Color.blue(color))));
+            chip.setTextColor(color);
+            chipsSelectedTags.addView(chip);
+        }
+    }
+
+    private int parseColor(String hex) {
+        try {
+            return Color.parseColor(hex);
+        } catch (Exception e) {
+            return Color.parseColor("#3F51B5");
+        }
     }
 }

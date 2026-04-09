@@ -9,9 +9,12 @@ public class Task {
     private final int reminderMinutes;
     private final boolean completed;
     private final boolean important;
+    private final Long parentTaskId;
+    private final String repeatRule;
 
     public Task(long id, long userId, String title, String description,
-                long dueDateTime, int reminderMinutes, boolean completed, boolean important) {
+                long dueDateTime, int reminderMinutes, boolean completed, boolean important,
+                Long parentTaskId, String repeatRule) {
         this.id = id;
         this.userId = userId;
         this.title = title;
@@ -20,6 +23,8 @@ public class Task {
         this.reminderMinutes = reminderMinutes;
         this.completed = completed;
         this.important = important;
+        this.parentTaskId = parentTaskId;
+        this.repeatRule = repeatRule;
     }
 
     public long getId() {
@@ -52,5 +57,13 @@ public class Task {
 
     public boolean isImportant() {
         return important;
+    }
+
+    public Long getParentTaskId() {
+        return parentTaskId;
+    }
+
+    public String getRepeatRule() {
+        return repeatRule;
     }
 }
